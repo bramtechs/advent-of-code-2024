@@ -28,5 +28,15 @@ pub fn solve(path: &str) {
         .map(|(l, r)| i32::abs(r - l))
         .sum::<i32>();
 
-    println!("Part 1 total distance: {}", distance);
+    println!("Day 1 - Part 1 total distance: {}", distance);
+
+    let similarity = left
+        .iter()
+        .map(|l| {
+            let matches_right = right.iter().filter(|r| *r == l).count() as i32;
+            l * matches_right
+        })
+        .sum::<i32>();
+
+    println!("Day 1 - Part 2 similarity score: {}", similarity);
 }
