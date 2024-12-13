@@ -6,8 +6,15 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <utility>
+#include <tuple>
 #include <vector>
+
+/**
+ * Not a good solution as I had to increase the stack size for the full input...
+ */
+
+using Multiplication = std::tuple<int, int, bool>;
+using MultiplicationVec = std::vector<Multiplication>;
 
 class Token {
 public:
@@ -17,13 +24,15 @@ public:
     PAREN_CLOSE,
     VALUE,
     COMMA,
-    UNKNOWN
+    UNKNOWN,
+    DO,
+    DONT
   } type;
   std::string text;
   int value;
 
   Token(Type type, char text, int value = 0)
-      : type(type), text(std::to_string(text)), value(value) {}
+      : type(type), text(std::string("") + text), value(value) {}
 
   Token(Type type, const std::string_view &text, int value = 0)
       : type(type), text(text), value(value) {}
@@ -34,6 +43,12 @@ static void parse(const std::string_view &input,
   if (input.starts_with("mul")) {
     outTokens.emplace_back(Token::Type::MUL, "mul");
     parse(input.substr(3), outTokens);
+  } else if (input.starts_with("don't")) {
+    outTokens.emplace_back(Token::Type::DONT, "don't");
+    parse(input.substr(5), outTokens);
+  } else if (input.starts_with("do")) {
+    outTokens.emplace_back(Token::Type::DO, "do");
+    parse(input.substr(2), outTokens);
   } else if (input.starts_with("(")) {
     outTokens.emplace_back(Token::Type::PAREN_OPEN, "(");
     parse(input.substr(1), outTokens);
@@ -63,56 +78,72 @@ static void parse(const std::string_view &input,
   }
 }
 
-static void lex(std::span<Token> tokens,
-                std::vector<std::pair<int, int>> &outMuls) {
+static void lex(std::span<Token> tokens, MultiplicationVec &outMuls,
+                bool active = true) {
   if (tokens.size() < 5) {
     return;
   }
 
+  // check for do or dont
+  if (tokens.begin()->type == Token::Type::DONT &&
+      tokens[1].type == Token::Type::PAREN_OPEN &&
+      tokens[2].type == Token::Type::PAREN_CLOSE) {
+    active = false;
+  } else if (tokens.begin()->type == Token::Type::DO &&
+             tokens[1].type == Token::Type::PAREN_OPEN &&
+             tokens[2].type == Token::Type::PAREN_CLOSE) {
+    active = true;
+  }
+
+  // check for mul
+
   if (tokens.begin()->type != Token::Type::MUL) {
-    lex(tokens.subspan(1), outMuls);
+    lex(tokens.subspan(1), outMuls, active);
     return;
   }
 
   if (tokens[1].type != Token::Type::PAREN_OPEN) {
-    lex(tokens.subspan(2), outMuls);
+    lex(tokens.subspan(2), outMuls, active);
     return;
   }
 
   if (tokens[2].type != Token::Type::VALUE) {
-    lex(tokens.subspan(3), outMuls);
+    lex(tokens.subspan(3), outMuls, active);
     return;
   }
 
   int firstValue = tokens[2].value;
 
   if (tokens[3].type != Token::Type::COMMA) {
-    lex(tokens.subspan(4), outMuls);
+    lex(tokens.subspan(4), outMuls, active);
     return;
   }
 
   if (tokens[4].type != Token::Type::VALUE) {
-    lex(tokens.subspan(5), outMuls);
+    lex(tokens.subspan(5), outMuls, active);
     return;
   }
 
   int secondValue = tokens[4].value;
 
   if (tokens[5].type != Token::Type::PAREN_CLOSE) {
-    lex(tokens.subspan(6), outMuls);
+    lex(tokens.subspan(6), outMuls, active);
     return;
   }
 
   // we found a valid sequence!
-  outMuls.emplace_back(firstValue, secondValue);
-  lex(tokens.subspan(6), outMuls);
+  outMuls.emplace_back(firstValue, secondValue, active);
+  lex(tokens.subspan(6), outMuls, active);
 }
 
-int calculate(const std::vector<std::pair<int, int>> &muls) {
-  return std::accumulate(muls.begin(), muls.end(), 0,
-                         [](int c, const std::pair<int, int> &value) {
-                           return c + (value.first * value.second);
-                         });
+static int calculate(MultiplicationVec &muls, bool part1) {
+  return std::accumulate(
+      muls.begin(), muls.end(), 0, [part1](int c, const Multiplication &value) {
+        if (std::get<2>(value) || part1) {
+          return c + (std::get<0>(value) * std::get<1>(value));
+        }
+        return c;
+      });
 }
 
 int main(int argc, char **argv) {
@@ -122,16 +153,20 @@ int main(int argc, char **argv) {
     throw std::runtime_error("Failed to read day 3 input");
   }
 
-  int sum = 0;
-  for (std::string line; std::getline(stream, line);) {
-    std::vector<Token> tokens{};
-    parse(line, tokens);
+  std::stringstream content{};
+  content << stream.rdbuf();
 
-    std::vector<std::pair<int, int>> muls{};
-    lex(tokens, muls);
+  std::vector<Token> tokens{};
+  parse(content.str(), tokens);
 
-    sum += calculate(muls);
-  }
+  MultiplicationVec muls{};
+  lex(tokens, muls);
 
-  std::cout << "Day 03 - Part 01 - Sum of multiplications: " << sum << '\n';
+  int sumPart1 = calculate(muls, true);
+  int sumPart2 = calculate(muls, false);
+
+  std::cout << "Day 03 - Part 01 - Sum of multiplications: " << sumPart1
+            << '\n';
+  std::cout << "Day 03 - Part 02 - Sum of conditional multiplications: "
+            << sumPart2 << '\n';
 }
