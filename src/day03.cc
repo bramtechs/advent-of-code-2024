@@ -1,13 +1,13 @@
+#include <fstream>
 #include <iostream>
+#include <numeric>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
-
-static std::string input =
-    "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
 
 class Token {
 public:
@@ -52,7 +52,8 @@ static void parse(const std::string_view &input,
         }
       }
 
-      int value = std::stod(input.substr(0, i).data());
+      std::string scan(input.substr(0, i));
+      int value = std::stod(scan);
       outTokens.emplace_back(Token::Type::VALUE, input.substr(0, i), value);
       parse(input.substr(i), outTokens);
     } else {
@@ -107,12 +108,30 @@ static void lex(std::span<Token> tokens,
   lex(tokens.subspan(6), outMuls);
 }
 
+int calculate(const std::vector<std::pair<int, int>> &muls) {
+  return std::accumulate(muls.begin(), muls.end(), 0,
+                         [](int c, const std::pair<int, int> &value) {
+                           return c + (value.first * value.second);
+                         });
+}
+
 int main(int argc, char **argv) {
-  std::vector<Token> tokens{};
-  parse(input, tokens);
 
-  std::vector<std::pair<int, int>> muls{};
-  lex(tokens, muls);
+  std::fstream stream("assets/day03.txt");
+  if (!stream) {
+    throw std::runtime_error("Failed to read day 3 input");
+  }
 
-  std::cout << "ok";
+  int sum = 0;
+  for (std::string line; std::getline(stream, line);) {
+    std::vector<Token> tokens{};
+    parse(line, tokens);
+
+    std::vector<std::pair<int, int>> muls{};
+    lex(tokens, muls);
+
+    sum += calculate(muls);
+  }
+
+  std::cout << "Day 03 - Part 01 - Sum of multiplications: " << sum << '\n';
 }
