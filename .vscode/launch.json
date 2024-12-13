@@ -1,9 +1,4 @@
 {
-  // The following are sample configurations for common case scenarios of debugging
-  // Rust in Visual Studio Code
-  //
-  // For syntax, visit: https://go.microsoft.com/fwlink/?linkid=830387
-  //
   "version": "0.2.0",
   "configurations": [
     {
@@ -19,6 +14,17 @@
       "type": "lldb",
       "request": "attach",
       "program": "${workspaceRoot}/target/debug/advent-of-code-2024"
+    },
+    {
+      "name": "C/C++: cl.exe build and debug active file",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
+      "stopAtEntry": false,
+      "cwd": "${fileDirname}",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "C/C++: cl.exe build active file"
     }
   ]
 }
